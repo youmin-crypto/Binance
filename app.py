@@ -3,57 +3,43 @@ import ccxt
 import time
 import pandas as pd
 
-st.set_page_config(page_title="Crypto Arbitrage Monitor", layout="wide")
+st.title("🚀 Real-time Arbitrage Scanner (Bybit vs OKX)")
 
-st.title("🚀 Real-time Arbitrage Scanner")
-st.write("Exchange နှစ်ခုကြားက ဈေးနှုန်းကွာဟချက်ကို API မလိုဘဲ စောင့်ကြည့်ခြင်း")
+# Bybit နဲ့ OKX ကို သုံးမယ် (Streamlit Cloud မှာ ပိုအဆင်ပြေတယ်)
+exchange1 = ccxt.bybit()
+exchange2 = ccxt.okx()
 
-# စမ်းသပ်မည့် Coin အမျိုးအစား
-symbol = st.selectbox("Select Coin", ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT"])
-
-# Exchange များ ချိတ်ဆက်ခြင်း
-binance = ccxt.binance()
-okx = ccxt.okx()
-
-# Data သိမ်းရန် table
-if 'history' not in st.session_state:
-    st.session_state.history = []
+symbol = st.selectbox("Select Coin", ["BTC/USDT", "ETH/USDT", "SOL/USDT"])
 
 placeholder = st.empty()
 
+if 'history' not in st.session_state:
+    st.session_state.history = []
+
 while True:
     try:
-        # ဈေးနှုန်းများ ဆွဲယူခြင်း
-        b_ticker = binance.fetch_ticker(symbol)
-        o_ticker = okx.fetch_ticker(symbol)
+        # Public API ကနေ ဈေးနှုန်းယူခြင်း
+        t1 = exchange1.fetch_ticker(symbol)
+        t2 = exchange2.fetch_ticker(symbol)
         
-        b_price = b_ticker['last']
-        o_price = o_ticker['last']
-        diff = b_price - o_price
-        diff_percent = (abs(diff) / min(b_price, o_price)) * 100
+        p1, p2 = t1['last'], t2['last']
+        diff = abs(p1 - p2)
+        diff_pct = (diff / min(p1, p2)) * 100
 
-        # UI မှာ ပြသခြင်း
         with placeholder.container():
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Binance Price", f"${b_price:,.2f}")
-            col2.metric("OKX Price", f"${o_price:,.2f}")
-            col3.metric("Difference", f"${diff:,.2f}", f"{diff_percent:.4f}%")
-
-            # History ထဲ ထည့်ခြင်း
-            st.session_state.history.append({
-                "Time": time.strftime("%H:%M:%S"),
-                "Diff": diff
-            })
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Bybit Price", f"${p1:,.2f}")
+            c2.metric("OKX Price", f"${p2:,.2f}")
+            c3.metric("Difference", f"${diff:,.2f}", f"{diff_pct:.4f}%")
             
-            # နောက်ဆုံးအကြိမ် 20 ကိုပဲပြမယ်
+            # Graph ပြဖို့
+            st.session_state.history.append({"Time": time.strftime("%H:%M:%S"), "Diff": diff})
             df = pd.DataFrame(st.session_state.history[-20:])
             st.line_chart(df.set_index("Time"))
-            
-            st.table(df.tail(5))
 
-        time.sleep(5) # ၅ စက္ကန့်တစ်ခါ update လုပ်မယ်
+        time.sleep(5)
         st.rerun()
 
     except Exception as e:
-        st.error(f"Error fetching data: {e}")
+        st.error(f"Error: {e}")
         time.sleep(10)
